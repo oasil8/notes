@@ -19,31 +19,47 @@
   /* LIST */
   #list-view{max-width:660px;margin:0 auto;padding:80px 24px 120px}
   #list-view h1{font-size:22px;font-weight:400;letter-spacing:-.3px;margin-bottom:6px}
-  #list-view .subtitle{font-size:13px;color:var(--muted2);margin-bottom:48px}
+  #list-view .subtitle{font-size:13px;color:var(--muted2);margin-bottom:40px}
+
+  /* drop zone */
+  #drop-zone{
+    border:1px dashed var(--line2);border-radius:6px;
+    padding:28px 24px;text-align:center;cursor:pointer;
+    transition:border-color .2s,background .2s;
+    margin-bottom:40px;position:relative;
+  }
+  #drop-zone:hover,#drop-zone.drag-over{border-color:var(--muted2);background:var(--bg2)}
+  #drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  #drop-zone .dz-label{font-size:13px;color:var(--muted2);margin-bottom:3px}
+  #drop-zone .dz-label strong{color:var(--text);font-weight:500}
+  #drop-zone .dz-sub{font-size:11px;color:var(--muted)}
 
   /* loading / error */
-  #status{text-align:center;padding:48px 0;font-size:13px;color:var(--muted)}
-  #status.error{color:#c0392b}
+  #status{text-align:center;padding:32px 0;font-size:13px;color:var(--muted)}
   .spinner{display:inline-block;width:16px;height:16px;border:1.5px solid var(--line2);border-top-color:var(--muted2);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:-3px}
   @keyframes spin{to{transform:rotate(360deg)}}
 
+  /* section headers */
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;margin-top:32px}
+  .section-header:first-of-type{margin-top:0}
+  .section-label{font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+  .section-count{font-size:11px;color:var(--muted)}
+
   /* notes list */
-  #notes-section{display:none}
-  #notes-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-  #notes-header .label{font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
-  #notes-header .count{font-size:11px;color:var(--muted)}
+  .notes-list{margin-bottom:8px}
   .note-row{
     display:flex;align-items:center;justify-content:space-between;
     padding:14px 0;border-bottom:1px solid var(--line);
-    cursor:pointer;gap:16px;transition:opacity .15s;position:relative;
+    cursor:pointer;gap:12px;transition:opacity .15s;position:relative;
   }
   .note-row:first-child{border-top:1px solid var(--line)}
   .note-row:hover{opacity:.7}
   .note-row:hover .note-dot{background:var(--muted2)}
-  .nr-left{display:flex;align-items:center;gap:12px;min-width:0}
+  .nr-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
   .note-dot{width:6px;height:6px;border-radius:50%;background:var(--dot);flex-shrink:0;transition:background .15s}
   .note-name{font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .note-date{font-size:12px;color:var(--muted);flex-shrink:0;margin-right:8px}
+  .badge-local{font-size:10px;color:var(--muted);border:1px solid var(--line2);border-radius:3px;padding:1px 5px;flex-shrink:0}
+  .note-date{font-size:12px;color:var(--muted);flex-shrink:0;margin-right:4px}
   .del-btn{
     display:flex;align-items:center;justify-content:center;
     width:24px;height:24px;border-radius:4px;
@@ -128,17 +144,33 @@
   <h1>notes</h1>
   <p class="subtitle">oasil8/notes · notes/ 폴더의 마크다운 파일</p>
 
-  <div id="status"><span class="spinner"></span>노트를 불러오는 중...</div>
+  <!-- 로컬 파일 업로드 -->
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept=".md,.txt,.ipynb" multiple>
+    <p class="dz-label"><strong>파일 선택</strong> 또는 여기에 드래그</p>
+    <p class="dz-sub">.md · .txt · .ipynb 지원</p>
+  </div>
 
-  <div id="notes-section">
-    <div id="notes-header">
-      <span class="label">NOTES</span>
+  <!-- GitHub 노트 섹션 -->
+  <div id="github-section">
+    <div class="section-header">
+      <span class="section-label">GITHUB</span>
       <div style="display:flex;align-items:center;gap:12px">
-        <span class="count" id="note-count">0</span>
+        <span class="section-count" id="github-count">0</span>
         <button id="refresh-btn" onclick="loadFromGitHub()">↺ 새로고침</button>
       </div>
     </div>
-    <div id="notes-list"></div>
+    <div id="status"><span class="spinner"></span>불러오는 중...</div>
+    <div class="notes-list" id="github-list"></div>
+  </div>
+
+  <!-- 로컬 노트 섹션 -->
+  <div id="local-section" style="display:none">
+    <div class="section-header">
+      <span class="section-label">LOCAL</span>
+      <span class="section-count" id="local-count">0</span>
+    </div>
+    <div class="notes-list" id="local-list"></div>
   </div>
 </div>
 
@@ -154,70 +186,58 @@
 
 <!-- UNDO TOAST -->
 <div id="undo-toast">
-  <span id="undo-msg">노트를 삭제했습니다</span>
+  <span id="undo-msg"></span>
   <button onclick="undoDelete()">실행 취소</button>
 </div>
 
 <script>
-// ── CONFIG ── 여기만 수정하면 됨
 const GITHUB_USER = 'oasil8';
 const GITHUB_REPO = 'notes';
 const NOTES_FOLDER = 'notes';
-// ─────────────
 
 const API = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${NOTES_FOLDER}`;
 const RAW = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${NOTES_FOLDER}`;
 
 marked.setOptions({ gfm: true, breaks: true });
 
-let notes = [];
-let _deletedNote = null;
-let _deletedIdx  = null;
-let _toastTimer  = null;
+let githubNotes = [];
+let localNotes  = [];
+let _deletedNote = null, _deletedFrom = null, _deletedIdx = null, _toastTimer = null;
 
-// ── GitHub API로 파일 목록 가져오기 ──
+// ── GitHub 로드 ──
 async function loadFromGitHub() {
-  setStatus('<span class="spinner"></span>노트를 불러오는 중...');
-  document.getElementById('notes-section').style.display = 'none';
+  setStatus('<span class="spinner"></span>불러오는 중...');
+  document.getElementById('github-list').innerHTML = '';
+  document.getElementById('github-count').textContent = '0';
 
   try {
     const res = await fetch(API);
-    if (!res.ok) throw new Error(`GitHub API 오류: ${res.status}`);
+    if (!res.ok) throw new Error(`GitHub API 오류 ${res.status}`);
     const files = await res.json();
 
-    notes = files
-      .filter(f => f.name.endsWith('.md') || f.name.endsWith('.txt') || f.name.endsWith('.ipynb'))
+    githubNotes = files
+      .filter(f => /\.(md|txt|ipynb)$/.test(f.name))
       .map(f => ({
         name: f.name.replace(/\.(md|txt|ipynb)$/, '').replace(/-/g, ' '),
         filename: f.name,
-        sha: f.sha,
         date: '',
         content: null,
+        source: 'github',
         type: f.name.endsWith('.ipynb') ? 'ipynb' : 'md'
       }));
 
-    if (notes.length === 0) {
-      setStatus('notes/ 폴더에 .md 파일이 없습니다');
-      return;
-    }
-
-    // 커밋 날짜 가져오기 (병렬)
-    await Promise.all(notes.map(async (n) => {
+    await Promise.all(githubNotes.map(async n => {
       try {
         const r = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/commits?path=${NOTES_FOLDER}/${n.filename}&per_page=1`);
-        const commits = await r.json();
-        if (commits[0]) {
-          const d = new Date(commits[0].commit.author.date);
-          n.date = d.toISOString().slice(0, 10);
-        }
-      } catch(e) {}
+        const c = await r.json();
+        if (c[0]) n.date = new Date(c[0].commit.author.date).toISOString().slice(0,10);
+      } catch(e){}
     }));
 
     setStatus('');
-    renderList();
-
+    renderGithubList();
   } catch(e) {
-    setStatus(`<span style="color:#c0392b">⚠ 불러오기 실패: ${e.message}</span>`, true);
+    setStatus(`<span style="color:#c0392b">⚠ ${e.message}</span>`);
   }
 }
 
@@ -227,36 +247,50 @@ function setStatus(html) {
   el.style.display = html ? 'block' : 'none';
 }
 
-function renderList() {
-  const list = document.getElementById('notes-list');
-  const section = document.getElementById('notes-section');
-  document.getElementById('note-count').textContent = notes.length;
-  section.style.display = 'block';
+// ── 렌더링 ──
+function renderGithubList() {
+  const list = document.getElementById('github-list');
+  document.getElementById('github-count').textContent = githubNotes.length;
   list.innerHTML = '';
-
-  notes.forEach((n, i) => {
-    const row = document.createElement('div');
-    row.className = 'note-row';
-    row.innerHTML = `
-      <div class="nr-left">
-        <span class="note-dot"></span>
-        <span class="note-name">${escHtml(n.name)}</span>
-      </div>
-      <span class="note-date">${n.date || ''}</span>
-      <button class="del-btn" title="목록에서 숨기기" aria-label="숨기기">✕</button>
-    `;
-    row.querySelector('.del-btn').addEventListener('click', e => {
-      e.stopPropagation();
-      deleteNote(i);
-    });
-    row.addEventListener('click', () => showNote(i));
-    list.appendChild(row);
+  githubNotes.forEach((n, i) => {
+    list.appendChild(makeRow(n, i, 'github'));
   });
 }
 
-// ── 노트 상세 보기 ──
-async function showNote(i) {
-  const n = notes[i];
+function renderLocalList() {
+  const list = document.getElementById('local-list');
+  const section = document.getElementById('local-section');
+  document.getElementById('local-count').textContent = localNotes.length;
+  list.innerHTML = '';
+  if (localNotes.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  localNotes.forEach((n, i) => {
+    list.appendChild(makeRow(n, i, 'local'));
+  });
+}
+
+function makeRow(n, i, from) {
+  const row = document.createElement('div');
+  row.className = 'note-row';
+  row.innerHTML = `
+    <div class="nr-left">
+      <span class="note-dot"></span>
+      <span class="note-name">${escHtml(n.name)}</span>
+      ${from === 'local' ? '<span class="badge-local">local</span>' : ''}
+    </div>
+    <span class="note-date">${n.date || ''}</span>
+    <button class="del-btn" title="목록에서 숨기기">✕</button>
+  `;
+  row.querySelector('.del-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    deleteNote(i, from);
+  });
+  row.addEventListener('click', () => showNote(n));
+  return row;
+}
+
+// ── 상세 보기 ──
+async function showNote(n) {
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('detail-view').style.display = 'block';
   document.getElementById('detail-date').textContent = n.date || '';
@@ -266,21 +300,21 @@ async function showNote(i) {
 
   try {
     if (!n.content) {
-      const res = await fetch(`${RAW}/${n.filename}`);
-      if (!res.ok) throw new Error('파일을 불러올 수 없습니다');
-      const raw = await res.text();
-
-      if (n.type === 'ipynb') {
-        // ipynb에서 markdown 셀만 추출
-        const nb = JSON.parse(raw);
-        const cells = nb.cells || nb.worksheets?.[0]?.cells || [];
-        n.content = cells
-          .filter(c => c.cell_type === 'markdown')
-          .map(c => Array.isArray(c.source) ? c.source.join('') : c.source)
-          .join('\n\n');
-        if (!n.content.trim()) n.content = '> 이 노트북에는 마크다운 셀이 없습니다.';
-      } else {
-        n.content = raw;
+      if (n.source === 'github') {
+        const res = await fetch(`${RAW}/${n.filename}`);
+        if (!res.ok) throw new Error('파일을 불러올 수 없습니다');
+        const raw = await res.text();
+        if (n.type === 'ipynb') {
+          const nb = JSON.parse(raw);
+          const cells = nb.cells || nb.worksheets?.[0]?.cells || [];
+          n.content = cells
+            .filter(c => c.cell_type === 'markdown')
+            .map(c => Array.isArray(c.source) ? c.source.join('') : c.source)
+            .join('\n\n');
+          if (!n.content.trim()) n.content = '> 마크다운 셀이 없습니다.';
+        } else {
+          n.content = raw;
+        }
       }
     }
     document.getElementById('detail-loading').style.display = 'none';
@@ -297,13 +331,54 @@ function showList() {
   document.getElementById('list-view').style.display = 'block';
 }
 
-// ── 삭제 (로컬 목록에서만 숨김, GitHub 파일은 유지) ──
-function deleteNote(i) {
-  _deletedNote = notes[i];
+// ── 로컬 파일 읽기 ──
+function readFile(file) {
+  return new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = e => {
+      const isIpynb = file.name.endsWith('.ipynb');
+      let content = e.target.result;
+      if (isIpynb) {
+        try {
+          const nb = JSON.parse(content);
+          const cells = nb.cells || nb.worksheets?.[0]?.cells || [];
+          content = cells
+            .filter(c => c.cell_type === 'markdown')
+            .map(c => Array.isArray(c.source) ? c.source.join('') : c.source)
+            .join('\n\n');
+          if (!content.trim()) content = '> 마크다운 셀이 없습니다.';
+        } catch(e) { content = '> ipynb 파싱 오류'; }
+      }
+      resolve({
+        name: file.name.replace(/\.(md|txt|ipynb)$/, ''),
+        filename: file.name,
+        date: new Date().toISOString().slice(0,10),
+        content,
+        source: 'local',
+        type: isIpynb ? 'ipynb' : 'md'
+      });
+    };
+    r.readAsText(file, 'UTF-8');
+  });
+}
+
+async function addLocalFiles(files) {
+  for (const f of files) {
+    const note = await readFile(f);
+    localNotes.unshift(note);
+  }
+  renderLocalList();
+}
+
+// ── 삭제 & Undo ──
+function deleteNote(i, from) {
+  const arr = from === 'github' ? githubNotes : localNotes;
+  _deletedNote = arr[i];
+  _deletedFrom = from;
   _deletedIdx  = i;
-  notes.splice(i, 1);
-  renderList();
-  showToast(`"${_deletedNote.name}" 목록에서 숨김`);
+  arr.splice(i, 1);
+  from === 'github' ? renderGithubList() : renderLocalList();
+  showToast(`"${_deletedNote.name}" 숨김`);
 }
 
 function showToast(msg) {
@@ -311,24 +386,37 @@ function showToast(msg) {
   document.getElementById('undo-msg').textContent = msg;
   toast.classList.add('show');
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => {
-    toast.classList.remove('show');
-    _deletedNote = null;
-  }, 4000);
+  _toastTimer = setTimeout(() => { toast.classList.remove('show'); _deletedNote = null; }, 4000);
 }
 
 function undoDelete() {
   if (!_deletedNote) return;
-  notes.splice(_deletedIdx, 0, _deletedNote);
+  const arr = _deletedFrom === 'github' ? githubNotes : localNotes;
+  arr.splice(_deletedIdx, 0, _deletedNote);
   _deletedNote = null;
   clearTimeout(_toastTimer);
   document.getElementById('undo-toast').classList.remove('show');
-  renderList();
+  _deletedFrom === 'github' ? renderGithubList() : renderLocalList();
 }
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ── 이벤트 ──
+document.getElementById('file-input').addEventListener('change', e => {
+  addLocalFiles([...e.target.files]);
+  e.target.value = '';
+});
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  addLocalFiles([...e.dataTransfer.files].filter(f => /\.(md|txt|ipynb)$/.test(f.name)));
+});
 
 // ── Boot ──
 loadFromGitHub();
