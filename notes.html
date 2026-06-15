@@ -186,13 +186,14 @@ async function loadFromGitHub() {
     const files = await res.json();
 
     notes = files
-      .filter(f => f.name.endsWith('.md') || f.name.endsWith('.txt'))
+      .filter(f => f.name.endsWith('.md') || f.name.endsWith('.txt') || f.name.endsWith('.ipynb'))
       .map(f => ({
-        name: f.name.replace(/\.(md|txt)$/, '').replace(/-/g, ' '),
+        name: f.name.replace(/\.(md|txt|ipynb)$/, '').replace(/-/g, ' '),
         filename: f.name,
         sha: f.sha,
         date: '',
-        content: null
+        content: null,
+        type: f.name.endsWith('.ipynb') ? 'ipynb' : 'md'
       }));
 
     if (notes.length === 0) {
@@ -267,7 +268,20 @@ async function showNote(i) {
     if (!n.content) {
       const res = await fetch(`${RAW}/${n.filename}`);
       if (!res.ok) throw new Error('파일을 불러올 수 없습니다');
-      n.content = await res.text();
+      const raw = await res.text();
+
+      if (n.type === 'ipynb') {
+        // ipynb에서 markdown 셀만 추출
+        const nb = JSON.parse(raw);
+        const cells = nb.cells || nb.worksheets?.[0]?.cells || [];
+        n.content = cells
+          .filter(c => c.cell_type === 'markdown')
+          .map(c => Array.isArray(c.source) ? c.source.join('') : c.source)
+          .join('\n\n');
+        if (!n.content.trim()) n.content = '> 이 노트북에는 마크다운 셀이 없습니다.';
+      } else {
+        n.content = raw;
+      }
     }
     document.getElementById('detail-loading').style.display = 'none';
     document.getElementById('detail-content').innerHTML = marked.parse(n.content);
